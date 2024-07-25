@@ -1,112 +1,436 @@
-import Image from "next/image";
-
+"use client";
+import axiosInstance from "@/helper/axiosInstance";
+import { useState, useEffect } from "react";
+type Data = {
+  id: number;
+  title: string;
+  nominal: number;
+  type: string;
+  category: string;
+  date: string;
+};
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+  const [expense, setExpense] = useState<Data[]>([]);
+
+  /// ADD DATA
+  const [type, setType] = useState<string>("income");
+  const [title, setTitle] = useState<string>("");
+  const [nominal, setNominal] = useState<number>(0);
+  const [category, setCategory] = useState<string>("salary");
+
+  ///SEARCH WITH CATEGORY
+  const [priceCategory, setPriceCategory] = useState<string>("all");
+
+  ///SEARCH WITH DATE AND CATEGORY
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [filterDateTotal, setFilterDateTotal] = useState<number>(0);
+  const [filterData, setFilterData] = useState<Data[]>([]);
+  const [incomeDate, setIncomeDate] = useState<number>(0);
+  const [expenseDate, setExpenseDate] = useState<number>(0);
+
+  const getData = async () => {
+    try {
+      const { data } = await axiosInstance.get("/tracker");
+      setExpense(data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const addData = async () => {
+    try {
+      await axiosInstance.post("/tracker/add", {
+        title: title,
+        nominal: nominal,
+        type: type,
+        category: category,
+      });
+
+      setTitle("");
+      setNominal(0);
+      setType("income");
+      setCategory("salary");
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const filterByDate = async () => {
+    try {
+      console.log("Start Date:", startDate);
+      console.log("End Date:", endDate);
+
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate,
+      });
+
+      const { data } = await axiosInstance.get(
+        `/tracker/total?${params.toString()}`
+      );
+
+      setFilterDateTotal(data.total);
+
+      setFilterData(data.filteredData);
+      setIncomeDate(data.income);
+      setExpenseDate(data.expense);
+
+      console.log(filterData);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const filterByCategory = async () => {
+    try {
+      const { data } = await axiosInstance.get(
+        `/tracker/totalbycategory?category=${priceCategory}`
+      );
+      setFilterData(data.filteredData);
+
+      setFilterDateTotal(data.total);
+      setIncomeDate(data.income);
+      setExpenseDate(data.expense);
+      console.log(priceCategory);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, [expense]);
+
+  useEffect(() => {
+    if (priceCategory !== "all") {
+      filterByCategory();
+    }
+  }, [priceCategory]);
+
+  const deleteData = async (id: number) => {
+    try {
+      const { data } = await axiosInstance.delete(`/tracker/delete/${id}`);
+      console.log(data);
+      if (data.success) {
+        setExpense(expense.filter((e) => e.id !== id));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const deleteDataAtFilter = async (id: number) => {
+    try {
+      const { data } = await axiosInstance.delete(`/tracker/delete/${id}`);
+      console.log(data);
+      if (data.success) {
+        setFilterData(filterData.filter((e) => e.id !== id));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const showfilterByDate = filterData.map((val: Data) => {
+    return (
+      <div key={val.id}>
+        <div className="w-full h-auto flex justify-between items-center p-5">
+          <div className="flex flex-col justify-start">
+            <div>
+              <p>{val.title}</p>
+            </div>
+            <div>
+              <p>{val.category}</p>
+            </div>
+          </div>
+          <div>
+            <p>
+              {val.nominal.toLocaleString("id-ID", {
+                style: "currency",
+                currency: "IDR",
+              })}
+            </p>
+          </div>
+          <div>
+            <button
+              className="bg-violet-300 rounded-xl shadow-xl p-2"
+              onClick={() => deleteDataAtFilter(val.id)}
+            >
+              DELETE
+            </button>
+          </div>
         </div>
       </div>
+    );
+  });
 
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
+  const nominalTypeExpense = expense.filter(
+    (val: Data) => val.type === "expense"
+  );
+  const nominalExpenseList = nominalTypeExpense.map((val: Data) => val.nominal);
+  const totalNominalExpense = nominalExpenseList.reduce(
+    (acc, cur) => acc + cur,
+    0
+  );
+
+  const nominalTypeIncome = expense.filter(
+    (val: Data) => val.type === "income"
+  );
+  const nominalIncomeList = nominalTypeIncome.map((val: Data) => val.nominal);
+  const totalNominalIncome = nominalIncomeList.reduce(
+    (acc, cur) => acc + cur,
+    0
+  );
+
+  const showExpense = expense.map((val: Data) => {
+    return (
+      <div key={val.id}>
+        <div className="w-full h-auto flex justify-between items-center p-5">
+          <div className="flex flex-col justify-start">
+            <div>
+              <p>{val.title}</p>
+            </div>
+            <div>
+              <p>{val.category}</p>
+            </div>
+          </div>
+          <div>
+            <p>
+              {val.nominal.toLocaleString("id-ID", {
+                style: "currency",
+                currency: "IDR",
+              })}
+            </p>
+          </div>
+          <div>
+            <button
+              className="bg-violet-300 rounded-xl shadow-xl p-2"
+              onClick={() => deleteData(val.id)}
+            >
+              DELETE
+            </button>
+          </div>
+        </div>
       </div>
+    );
+  });
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+  return (
+    <main className="w-full min-h-screen flex justify-center items-center bg-white">
+      <div className="flex min-h-[80vh] w-[80%] justify-center items-center gap-10 bg-slate-200 p-10">
+        <div className="flex flex-col items-center justify-center w-full h-auto gap-5">
+          <div className="w-full h-auto">
+            <p className="text-4xl">Hello, track your money</p>
+          </div>
+          <div className="w-full h-auto shadow-xl flex flex-col justify-center items-center gap-5 p-5 bg-white">
+            <div>
+              <p className="text-xl text-center">Your Money Balance</p>
+              <p className="text-4xl text-center font-bold">
+                {filterData.length > 0 ||
+                priceCategory === "food" ||
+                priceCategory === "salary" ||
+                priceCategory === "transport" ||
+                (startDate && endDate)
+                  ? filterDateTotal.toLocaleString("id-ID", {
+                      style: "currency",
+                      currency: "IDR",
+                    })
+                  : (totalNominalIncome - totalNominalExpense).toLocaleString(
+                      "id-ID",
+                      { style: "currency", currency: "IDR" }
+                    )}
+              </p>
+            </div>
+            <div className="w-full h-auto flex justify-around items-center">
+              <div className="flex flex-col justify-center items-center">
+                <div>
+                  <p>Income</p>
+                </div>
+                <div>
+                  <p className="font-bold">
+                    {filterData.length > 0 ||
+                    priceCategory === "food" ||
+                    priceCategory === "salary" ||
+                    priceCategory === "transport" ||
+                    (startDate && endDate)
+                      ? incomeDate.toLocaleString("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                        })
+                      : totalNominalIncome.toLocaleString("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                        })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col justify-center items-center">
+                <div>
+                  <p>Expense</p>
+                </div>
+                <div className="font-bold">
+                  <p>
+                    {filterData.length > 0 ||
+                    priceCategory === "food" ||
+                    priceCategory === "salary" ||
+                    priceCategory === "transport" ||
+                    (startDate && endDate)
+                      ? expenseDate.toLocaleString("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                        })
+                      : totalNominalExpense.toLocaleString("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                        })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="w-full h-auto flex flex-col gap-5">
+            <form className="w-full h-auto flex justify-between items-center">
+              <div>
+                <p>Category</p>
+              </div>
+              <div>
+                <select
+                  className="w-[15.5rem] h-auto rounded-md p-1 shadow-md"
+                  value={priceCategory}
+                  onChange={(e) => {
+                    setPriceCategory(e.target.value);
+                  }}
+                >
+                  <option value="first">Select Category</option>
+                  <option value="salary">Salary</option>
+                  <option value="food">Food</option>
+                  <option value="transport">Transport</option>
+                </select>
+              </div>
+            </form>
+            <form className="w-full h-auto flex justify-between items-center gap-5">
+              <div className="w-1/2 gap-2 h-auto justify-between flex items-center">
+                <div className="w-1/2 h-auto">
+                  <p>Start Date</p>
+                </div>
+                <div className="w-1/2 h-auto">
+                  <input
+                    onChange={(e) => setStartDate(e.target.value)}
+                    type="date"
+                    className="w-full p-1 rounded-md shadow-xl"
+                  />
+                </div>
+              </div>
+              <div className="w-1/2 gap-2 h-auto justify-between flex items-center">
+                <div className="w-1/2 h-auto">
+                  <p>End Date</p>
+                </div>
+                <div className="w-1/2 h-auto">
+                  <input
+                    onChange={(e) => setEndDate(e.target.value)}
+                    type="date"
+                    className="w-full p-1 rounded-md shadow-xl"
+                  />
+                </div>
+              </div>
+            </form>
+            <button
+              onClick={() => filterByDate()}
+              className="w-full h-auto rounded-md shadow-xl p-2 bg-slate-300"
+            >
+              Submit
+            </button>
+          </div>
+          <div className="w-full h-96 overflow-y-auto shadow-xl flex flex-col bg-white">
+            {filterData.length > 0 ||
+            priceCategory === "food" ||
+            priceCategory === "salary" ||
+            priceCategory === "transport" ||
+            (startDate && endDate)
+              ? showfilterByDate
+              : showExpense}
+          </div>
+        </div>
+        <div className="w-full min-h-[80vh] p-5 shadow-xl flex justify-center items-center bg-white">
+          <div className="w-full min-h-[40vh] ">
+            <div className="w-full h-auto  p-5 flex flex-col gap-5">
+              <form className="w-full h-auto flex justify-between items-center">
+                <p>Type</p>
+                <div className="flex gap-5">
+                  <div className="flex gap-1">
+                    <input
+                      type="radio"
+                      value="income"
+                      checked={type === "income"}
+                      onChange={(e) => {
+                        setType(e.target.value);
+                      }}
+                    />
+                    <label htmlFor="income">Income</label>
+                  </div>
+                  <div className="flex gap-1">
+                    <input
+                      type="radio"
+                      value="expense"
+                      checked={type === "expense"}
+                      onChange={(e) => {
+                        setType(e.target.value);
+                      }}
+                    />
+                    <label htmlFor="expense">Expense</label>
+                  </div>
+                </div>
+              </form>
+              <form className="w-full h-auto flex justify-between items-center">
+                <p>Title</p>
+                <div>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                    }}
+                    className="rounded-md shadow-xl p-1"
+                  />
+                </div>
+              </form>
+              <form className="w-full h-auto flex justify-between items-center">
+                <p>Nominal</p>
+                <div>
+                  <input
+                    value={nominal}
+                    type="number"
+                    onChange={(e) => {
+                      setNominal(parseInt(e.target.value));
+                    }}
+                    className="rounded-md shadow-xl p-1"
+                  />
+                </div>
+              </form>
+              <form className="w-full h-auto flex justify-between items-center">
+                <p>Category</p>
+                <div>
+                  <select
+                    className="w-[13.8rem] rounded-md shadow-xl h-auto p-1"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option value="salary">Salary</option>
+                    <option value="food">Food</option>
+                    <option value="transport">Transport</option>
+                  </select>
+                </div>
+              </form>
+              <button
+                onClick={addData}
+                className="w-full h-auto p-2 shadow-xl bg-slate-300 rounded-xl"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
